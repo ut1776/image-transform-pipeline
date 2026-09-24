@@ -17,11 +17,25 @@ limits:
 - **`max_workers`** caps how many images are processed at the same time.
 - **`memory_limit_bytes`** caps how much image data is held in memory at once.
 
-Under the hood it is a bounded concurrent job scheduler. It does not include
-any storage, upload or networking code, and the transforms are supplied by the
-caller. The same design applies to services running under fixed CPU and memory
-limits, such as cloud workers.
+Under the hood it is a bounded concurrent job scheduler. It contains no
+storage, upload or networking code, and the transforms are supplied by the
+caller.
 
+## Typical uses
+
+The design fits any workload made of many independent items that each need the
+same ordered steps, where running everything at once is not affordable:
+
+- **Image services:** thumbnails, resizing, watermarking or compression of
+  uploaded photos.
+- **ML preprocessing:** decoding, resizing and normalizing large image sets
+  without loading the whole dataset into memory.
+- **Document and media conversion:** PDF-to-text, audio transcoding, video
+  frame extraction.
+- **Data (ETL) jobs:** cleaning or parsing large batches where output order
+  must match input order.
+- **Background workers:** handling a batch request that must return one result
+  per item, reporting failures per item instead of failing the whole request.
 
 ## Usage
 
@@ -73,9 +87,14 @@ for result in pipeline.run(jobs, [add_bang, shout]):
 
 ## Limitations
 
-- The budget counts only the original input bytes. Transform outputs, decoded
-  buffers and executor overhead are not included.
-- Finished results are kept in memory until the batch completes.
+- **Threads and the GIL:** threads only speed things up when transforms release
+  the GIL (as libraries like Pillow, OpenCV and NumPy do). For pure-Python
+  transforms, a process pool would be needed.
+- **Memory accounting:** the budget counts only the original input bytes.
+  Transform outputs, decoded buffers and executor overhead are not included.
+- **Results in memory:** finished results are kept until the batch completes.
+  A production version would stream or write them out as they finish.
+- **Single machine:** work is not distributed across nodes.
 
 ## Testing
 
@@ -84,4 +103,5 @@ where it was built. The tests are not included in this repository.
 
 ## License
 
+MIT
 MIT
