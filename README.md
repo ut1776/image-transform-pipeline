@@ -96,6 +96,35 @@ for result in pipeline.run(jobs, [add_bang, shout]):
   A production version would stream or write them out as they finish.
 - **Single machine:** work is not distributed across nodes.
 
+
+  ## Future work
+
+Ideas for a second version, none of which are implemented yet:
+
+- **Hashing for deduplication.** Hash each image's bytes so duplicates can reuse
+  a previous result, and images known to fail can be rejected without running
+  the transform chain again.
+- **Weighted semaphore for the byte budget.** Replace the manual in-flight byte
+  counter with a semaphore-style admission gate. It would need to acquire all
+  of a job's permits atomically (to avoid two jobs each holding part of what
+  the other needs), and cap an oversized job's request so it runs alone instead
+  of waiting forever.
+- **Fair ordering in front of the gate.** Keep a FIFO queue ahead of the
+  semaphore. The semaphore limits how many jobs run, not which one runs next, so
+  fairness has to come from the queue. Python's `threading.Semaphore` gives no
+  wake-up order guarantee, so a fair version needs its own waiter queue.
+- **Retry lane for failures.** Send failed images to a separate FIFO retry queue
+  (a dead-letter queue) and reprocess them after the main batch, so failures
+  don't hold up good images.
+- **Size-aware admission with aging.** Let smaller jobs go first to cut average
+  latency, while gradually raising the priority of waiting jobs so large ones
+  are never starved. A plain stack (LIFO) is avoided because it can starve the
+  oldest jobs.
+- **Streaming results.** Write or yield results as they finish instead of
+  holding them all in memory until the end.
+
+  
+
 ## Testing
 
 The implementation passed the full hidden test suite (18/18) on the platform
