@@ -4,6 +4,25 @@ A small, standard-library-only Python pipeline that applies an ordered chain of
 transforms to a batch of images concurrently, while keeping results
 deterministic and memory bounded.
 
+## Purpose
+
+This project is the execution core of a batch image-processing service. Given a
+batch of images and an ordered list of transforms (resize, watermark, compress
+and so on), it runs every image through the same chain, processes many images
+at once to finish faster, and returns results in the original order.
+
+A real service can't start everything at once, so the pipeline enforces two
+limits:
+
+- **`max_workers`** caps how many images are processed at the same time.
+- **`memory_limit_bytes`** caps how much image data is held in memory at once.
+
+Under the hood it is a bounded concurrent job scheduler. It does not include
+any storage, upload or networking code, and the transforms are supplied by the
+caller. The same design applies to services running under fixed CPU and memory
+limits, such as cloud workers.
+
+
 ## Usage
 
 ```python
